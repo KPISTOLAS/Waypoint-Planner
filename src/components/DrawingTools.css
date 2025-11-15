@@ -1,0 +1,106 @@
+.drawing-confirm-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  padding: 0;
+  min-width: 300px;
+  animation: slideIn 0.3s ease-out;
+  pointer-events: auto;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -60%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.drawing-confirm-content {
+  padding: 20px;
+}
+
+.drawing-confirm-header {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.drawing-confirm-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.drawing-confirm-header p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.drawing-confirm-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.confirm-btn,
+.cancel-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-btn {
+  background: #4a90e2;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: #357abd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+}
+
+.cancel-btn {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #e0e0e0;
+}
+
+.cancel-btn:hover {
+  background: #e8e8e8;
+  border-color: #d0d0d0;
+}
+
+/* Leaflet Draw Toolbar Styles */
+.leaflet-draw-toolbar {
+  margin-top: 10px;
+}
+
+.leaflet-draw-toolbar a {
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin: 2px;
+}
+
+.leaflet-draw-toolbar a:hover {
+  background-color: #f4f4f4;
+}
+

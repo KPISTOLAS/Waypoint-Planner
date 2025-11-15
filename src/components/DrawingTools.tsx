@@ -1,0 +1,355 @@
+import React, { useEffect, useRef } from 'react'
+import { useMap } from 'react-leaflet'
+import { useAtom, useSetAtom } from 'jotai'
+import { waypointsAtom, flightSettingsAtom } from '../store/flightPlanStore'
+import { isDrawingAtom } from '../store/drawingStore'
+import { drawingModeAtom } from '../store/drawingModeStore'
+import { generateWaypointsFromArea, generateWaypointsFromPOI } from '../utils/waypointGenerator'
+import L from 'leaflet'
+import { loadLeafletDraw } from '../utils/loadLeafletDraw'
+import { Check, X } from 'lucide-react'
+import './DrawingTools.css'
+
+const DrawingTools: React.FC = () => {
+  const map = useMap()
+  const [waypoints, setWaypoints] = useAtom(waypointsAtom)
+  const [settings] = useAtom(flightSettingsAtom)
+  const [, setIsDrawing] = useAtom(isDrawingAtom)
+  const [drawingMode] = useAtom(drawingModeAtom)
+  const setDrawingMode = useSetAtom(drawingModeAtom)
+  const drawnLayerRef = useRef<L.FeatureGroup | null>(null)
+  const currentDrawHandlerRef = useRef<L.Draw.Polygon | L.Draw.Rectangle | L.Draw.Circle | null>(null)
+  const [drawnShape, setDrawnShape] = React.useState<L.Polygon | L.Rectangle | L.Circle | null>(null)
+  const [isDrawingLocal, setIsDrawingLocal] = React.useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+    
+    console.log('DrawingTools useEffect triggered, mode:', drawingMode)
+    
+    // Initialize feature group for drawn shapes
+    if (!drawnLayerRef.current) {
+      drawnLayerRef.current = new L.FeatureGroup()
+      map.addLayer(drawnLayerRef.current)
+    }
+
+    // Handle draw events - set these up first
+    const handleCreated = (e: any) => {
+      console.log('Draw created event:', e)
+      const layer = e.layer
+      if (!layer) {
+        console.error('No layer in draw:created event')
+        return
+      }
+      
+      console.log('Layer type:', layer.constructor.name, layer)
+      console.log('Is Polygon?', layer instanceof L.Polygon)
+      console.log('Is Rectangle?', layer instanceof L.Rectangle)
+      console.log('Is Circle?', layer instanceof L.Circle)
+      
+      // Apply light blue styling to the drawn shape
+      if (layer.setStyle) {
+        layer.setStyle({
+          color: '#4a90e2',
+          weight: 3,
+          fillColor: '#87ceeb',
+          fillOpacity: 0.35,
+          stroke: true,
+        })
+      }
+      
+      drawnLayerRef.current!.addLayer(layer)
+      setIsDrawing(true)
+      setIsDrawingLocal(true)
+      
+      // Check if it's a rectangle, polygon, or circle
+      const isPolygon = layer instanceof L.Polygon
+      const isRectangle = layer instanceof L.Rectangle
+      const isCircle = layer instanceof L.Circle
+      const layerName = layer.constructor?.name || ''
+      const isPolygonByName = layerName.includes('Polygon')
+      const isRectangleByName = layerName.includes('Rectangle')
+      const isCircleByName = layerName.includes('Circle')
+      
+      // Set the shape based on type
+      if (isCircle || isCircleByName) {
+        setDrawnShape(layer as L.Circle)
+        console.log('Circle set successfully:', layer)
+      } else if (isPolygon || isRectangle || isPolygonByName || isRectangleByName) {
+        setDrawnShape(layer as L.Polygon | L.Rectangle)
+        console.log('Shape set successfully:', layer, { isPolygon, isRectangle, isPolygonByName, isRectangleByName })
+      } else {
+        // Check if it has required methods for polygon/rectangle
+        const hasRequiredMethods = layer.getBounds && (layer.getLatLngs || layer.getLatLngs === undefined)
+        if (hasRequiredMethods) {
+          setDrawnShape(layer as L.Polygon | L.Rectangle)
+          console.log('Setting shape based on methods')
+        } else {
+          console.warn('Layer type check failed:', layerName, layer)
+        }
+      }
+      
+      // Disable drawing handler after shape is created
+      if (currentDrawHandlerRef.current) {
+        try {
+          currentDrawHandlerRef.current.disable()
+        } catch (e) {
+          // Ignore errors
+        }
+        currentDrawHandlerRef.current = null
+      }
+      
+      // Don't reset drawing mode yet - wait for user confirmation
+    }
+
+    const handleDrawStart = () => {
+      console.log('Draw started')
+      setIsDrawing(true)
+    }
+
+    const handleDrawStop = () => {
+      console.log('Draw stopped')
+    }
+
+    // Register event handlers
+    map.on('draw:created' as any, handleCreated)
+    map.on('draw:drawstart' as any, handleDrawStart)
+    map.on('draw:drawstop' as any, handleDrawStop)
+
+    // Wait a bit to ensure leaflet-draw is loaded
+    const initDrawing = async () => {
+      if (!isMounted) return
+      
+      console.log('initDrawing called with mode:', drawingMode)
+      
+      // Ensure leaflet-draw is loaded
+      try {
+        await loadLeafletDraw()
+        console.log('leaflet-draw loaded successfully')
+      } catch (error) {
+        console.error('Failed to load leaflet-draw:', error)
+        // Retry after a delay
+        setTimeout(() => {
+          if (isMounted) {
+            initDrawing()
+          }
+        }, 500)
+        return
+      }
+      
+      // Check if leaflet-draw is available (from CDN, it extends window.L)
+      const Draw = (window as any).L?.Draw || (L as any).Draw
+      if (!Draw) {
+        console.warn('Leaflet Draw not available yet, retrying...')
+        // Retry after a short delay
+        setTimeout(() => {
+          if (isMounted) {
+            initDrawing()
+          }
+        }, 200)
+        return
+      }
+      
+      console.log('Leaflet Draw available:', Draw, 'Rectangle:', !!Draw.Rectangle, 'Polygon:', !!Draw.Polygon)
+      
+      if (!isMounted) return
+
+      // Handle drawing mode changes
+      
+      if (drawingMode === 'none' || drawingMode === 'cursor') {
+        // Cancel any active drawing
+        if (currentDrawHandlerRef.current) {
+          try {
+            currentDrawHandlerRef.current.disable()
+            console.log('Disabled existing drawing handler')
+          } catch (e) {
+            // Ignore errors when disabling
+          }
+          currentDrawHandlerRef.current = null
+        }
+        setIsDrawing(false)
+        setIsDrawingLocal(false)
+      } else if (drawingMode === 'rectangle' || drawingMode === 'polygon' || drawingMode === 'poi') {
+        console.log('Enabling drawing mode:', drawingMode)
+        
+        // Enable drawing mode
+        if (drawnLayerRef.current) {
+          drawnLayerRef.current.clearLayers()
+        }
+        setDrawnShape(null)
+        
+        // Disable any existing handler first
+        if (currentDrawHandlerRef.current) {
+          try {
+            currentDrawHandlerRef.current.disable()
+          } catch (e) {
+            // Ignore errors
+          }
+          currentDrawHandlerRef.current = null
+        }
+        
+        // Create appropriate draw handler
+        if (drawingMode === 'rectangle' && Draw.Rectangle) {
+          try {
+            console.log('Creating Rectangle handler...')
+            const handler = new Draw.Rectangle(map, {
+              shapeOptions: {
+                color: '#4a90e2',
+                weight: 3,
+                fillColor: '#87ceeb',
+                fillOpacity: 0.35,
+                stroke: true,
+              },
+            })
+            currentDrawHandlerRef.current = handler as any
+            handler.enable()
+            console.log('Rectangle drawing enabled successfully')
+          } catch (error) {
+            console.error('Error enabling rectangle drawing:', error)
+          }
+        } else if (drawingMode === 'polygon' && Draw.Polygon) {
+          try {
+            console.log('Creating Polygon handler...')
+            const handler = new Draw.Polygon(map, {
+              shapeOptions: {
+                color: '#4a90e2',
+                weight: 3,
+                fillColor: '#87ceeb',
+                fillOpacity: 0.35,
+                stroke: true,
+              },
+              allowIntersection: false,
+            })
+            currentDrawHandlerRef.current = handler as any
+            handler.enable()
+            console.log('Polygon drawing enabled successfully')
+          } catch (error) {
+            console.error('Error enabling polygon drawing:', error)
+          }
+        } else if (drawingMode === 'poi' && Draw.Circle) {
+          try {
+            console.log('Creating Circle handler...')
+            const handler = new Draw.Circle(map, {
+              shapeOptions: {
+                color: '#4a90e2',
+                weight: 3,
+                fillColor: '#87ceeb',
+                fillOpacity: 0.35,
+                stroke: true,
+              },
+            })
+            currentDrawHandlerRef.current = handler as any
+            handler.enable()
+            console.log('Circle drawing enabled successfully')
+          } catch (error) {
+            console.error('Error enabling circle drawing:', error)
+          }
+        } else {
+          console.warn('Draw handler not available:', { 
+            mode: drawingMode, 
+            hasRectangle: !!Draw.Rectangle, 
+            hasPolygon: !!Draw.Polygon,
+            hasCircle: !!Draw.Circle
+          })
+        }
+      }
+    }
+
+    // Initialize drawing after ensuring leaflet-draw is loaded
+    initDrawing()
+
+    return () => {
+      isMounted = false
+      map.off('draw:created' as any, handleCreated)
+      map.off('draw:drawstart' as any, handleDrawStart)
+      map.off('draw:drawstop' as any, handleDrawStop)
+      if (currentDrawHandlerRef.current) {
+        try {
+          currentDrawHandlerRef.current.disable()
+        } catch (e) {
+          // Ignore errors
+        }
+        currentDrawHandlerRef.current = null
+      }
+    }
+  }, [map, drawingMode, setDrawingMode])
+
+  const handleGenerateWaypoints = () => {
+    if (!drawnShape) return
+
+    // Check if it's a circle (POI) or polygon/rectangle
+    let generatedWaypoints: any[] = []
+    if (drawnShape instanceof L.Circle) {
+      generatedWaypoints = generateWaypointsFromPOI(drawnShape, settings)
+    } else {
+      generatedWaypoints = generateWaypointsFromArea(drawnShape as L.Polygon | L.Rectangle, settings)
+    }
+    
+    // Add generated waypoints to existing waypoints
+    setWaypoints([...waypoints, ...generatedWaypoints])
+    
+    // Clear the drawn shape
+    if (drawnLayerRef.current) {
+      drawnLayerRef.current.clearLayers()
+    }
+    setDrawnShape(null)
+    setIsDrawing(false)
+    setIsDrawingLocal(false)
+    
+    // Reset drawing mode to cursor after generating
+    setDrawingMode('cursor')
+  }
+
+  const handleCancel = () => {
+    if (drawnLayerRef.current) {
+      drawnLayerRef.current.clearLayers()
+    }
+    setDrawnShape(null)
+    setIsDrawing(false)
+    setIsDrawingLocal(false)
+    
+    // Reset drawing mode to cursor
+    setDrawingMode('cursor')
+  }
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('DrawingTools state:', { isDrawingLocal, drawnShape: !!drawnShape, drawingMode })
+  }, [isDrawingLocal, drawnShape, drawingMode])
+
+  if (!isDrawingLocal || !drawnShape) {
+    console.log('Not showing confirmation panel:', { isDrawingLocal, hasDrawnShape: !!drawnShape })
+    return null
+  }
+
+  return (
+    <div className="drawing-confirm-panel">
+      <div className="drawing-confirm-content">
+        <div className="drawing-confirm-header">
+          <h3>{drawnShape instanceof L.Circle ? 'POI Circle Selected' : 'Area Selected'}</h3>
+          <p>{drawnShape instanceof L.Circle ? 'Generate waypoints around the circle perimeter (facing center)?' : 'Generate waypoints for this area?'}</p>
+        </div>
+        <div className="drawing-confirm-buttons">
+          <button
+            className="confirm-btn"
+            onClick={handleGenerateWaypoints}
+            title="Generate Waypoints"
+          >
+            <Check size={18} />
+            <span>Generate Waypoints</span>
+          </button>
+          <button
+            className="cancel-btn"
+            onClick={handleCancel}
+            title="Cancel"
+          >
+            <X size={18} />
+            <span>Cancel</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default DrawingTools

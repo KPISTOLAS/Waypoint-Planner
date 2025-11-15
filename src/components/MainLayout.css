@@ -1,0 +1,38 @@
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: linear-gradient(to bottom, #f8f9fa, #f0f2f5);
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.left-panel {
+  width: 400px;
+  min-width: 350px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-right: 2px solid #e8e8e8;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+  background: #e8e8e8;
+}
+
+@media (max-width: 1200px) {
+  .left-panel {
+    width: 350px;
+    min-width: 300px;
+  }
+}
+

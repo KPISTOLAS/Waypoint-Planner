@@ -1,0 +1,117 @@
+.drawing-toolbar {
+  position: absolute;
+  top: 80px;
+  right: 16px;
+  z-index: 2000;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  min-width: 200px;
+  pointer-events: auto;
+  border: 2px solid #4a90e2;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.drawing-toolbar.hidden {
+  min-height: auto;
+  padding: 8px 12px;
+}
+
+.drawing-toolbar.visible {
+  min-height: auto;
+}
+
+.drawing-toolbar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.drawing-toolbar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.drawing-toolbar-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.drawing-toolbar-toggle:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.drawing-toolbar.hidden .drawing-toolbar-title {
+  margin-bottom: 0;
+}
+
+.drawing-toolbar-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawing-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  transition: all 0.2s;
+  width: 100%;
+  text-align: left;
+}
+
+.drawing-btn:hover {
+  background: #e8e8e8;
+  border-color: #d0d0d0;
+}
+
+.drawing-btn.active {
+  background: #4a90e2;
+  color: white;
+  border-color: #4a90e2;
+}
+
+.drawing-btn.active:hover {
+  background: #357abd;
+  border-color: #357abd;
+}
+
+/* Cursor button styling - visually separated and always first */
+.drawing-toolbar-buttons > .cursor-btn {
+  order: -1; /* Make it first */
+  border-top: 2px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.drawing-btn.cursor-btn.active {
+  border-top-color: #4a90e2;
+  border-bottom-color: #4a90e2;
+}
+
